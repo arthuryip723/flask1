@@ -18,36 +18,40 @@ app.config['SQLALCHEMY_COMMIT_ON_TEARDOWN'] = True
 db = SQLAlchemy(app)
 auth = HTTPBasicAuth()
 
-from models import User
+# from models import User, Cat
+# from models import User
 
-# class User(db.Model):
-#     __tablename__ = 'users'
-#     id = db.Column(db.Integer, primary_key=True)
-#     username = db.Column(db.String(32), index=True)
-#     password_hash = db.Column(db.String(64))
+class User(db.Model):
+    __tablename__ = 'users'
+    id = db.Column(db.Integer, primary_key=True)
+    username = db.Column(db.String(32), index=True)
+    password_hash = db.Column(db.String(64))
 
-#     def hash_password(self, password):
-#         self.password_hash = pwd_context.encrypt(password)
+    def hash_password(self, password):
+        self.password_hash = pwd_context.encrypt(password)
 
-#     def verify_password(self, password):
-#         return pwd_context.verify(password, self.password_hash)
+    def verify_password(self, password):
+        return pwd_context.verify(password, self.password_hash)
 
-#     def generate_auth_token(self, expiration=600):
-#         s = Serializer(app.config['SECRET_KEY'], expires_in=expiration)
-#         return s.dumps({'id': self.id})
+    def generate_auth_token(self, expiration=600):
+        s = Serializer(app.config['SECRET_KEY'], expires_in=expiration)
+        return s.dumps({'id': self.id})
 
-#     @staticmethod
-#     def verify_auth_token(token):
-#         s = Serializer(app.config['SECRET_KEY'])
-#         try:
-#             data = s.loads(token)
-#         except SignatureExpired:
-#             return None    # valid token, but expired
-#         except BadSignature:
-#             return None    # invalid token
-#         user = User.query.get(data['id'])
-#         return user
+    @staticmethod
+    def verify_auth_token(token):
+        s = Serializer(app.config['SECRET_KEY'])
+        try:
+            data = s.loads(token)
+        except SignatureExpired:
+            return None    # valid token, but expired
+        except BadSignature:
+            return None    # invalid token
+        user = User.query.get(data['id'])
+        return user
 
+class Cat(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    name = db.Column(db.String(128))
 
 @auth.verify_password
 def verify_password(username_or_token, password):
@@ -97,6 +101,26 @@ def get_auth_token():
 @auth.login_required
 def get_resource():
     return jsonify({'data': 'Hello, %s!' % g.user.username})
+
+@app.route('/api/cats')
+def get_cats():
+    cats = Cat.query.all()
+    names = []
+    for cat in cats:
+        names.append(cat.name)
+    return jsonify({'cats': names})
+    
+@app.route('/api/cats/<string:name>')
+def add_cat(name):
+    cat = Cat(name=name)
+    db.session.add(cat)
+    db.session.commit()
+    return jsonify({'name': cat.name})
+
+@app.route('/')
+@app.route('/index')
+def index():
+    return "Hello, World!"
 
 if __name__ == '__main__':
     if not os.path.exists('db.sqlite'):
